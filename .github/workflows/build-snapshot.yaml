@@ -31,7 +31,7 @@ jobs:
       - name: Build grammar
         run: |
           java -jar antlr-4.9.1-complete.jar -o gen -no-listener -Dlanguage=Python3 grammar/tscn_lexer.g4
-          java -jar antlr-4.9.1-complete.jar -o gen -no-listener -Dlanguage=Python3 grammar/tscn_parser.g4
+          java -jar antlr-4.9.1-complete.jar -o gen -no-listener -lib gen -Dlanguage=Python3 grammar/tscn_parser.g4
 
       - name: Build executable
         run: python -m pipenv run pyinstaller -F tscnmerge.py
