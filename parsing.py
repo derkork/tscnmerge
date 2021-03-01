@@ -1,6 +1,8 @@
-from antlr4 import *
-from gen.tscn_parser import tscn_parser
+from antlr4 import CommonTokenStream, FileStream
+from antlr4 import ParseTreeVisitor
+
 from gen.tscn_lexer import tscn_lexer
+from gen.tscn_parser import tscn_parser
 from model.ArrayValue import ArrayValue
 from model.BooleanValue import BooleanValue
 from model.Connection import Connection
@@ -28,7 +30,6 @@ def parse(path: str) -> TscnFile:
     return visitor.visitScene(tree)
 
 
-# noinspection SpellCheckingInspection,PyMethodMayBeStatic
 class TscnVisitor(ParseTreeVisitor):
 
     def visitScene(self, ctx: tscn_parser.SceneContext) -> TscnFile:
@@ -129,18 +130,20 @@ class TscnVisitor(ParseTreeVisitor):
         return BooleanValue(ctx.BOOLEAN_LITERAL().getText())
 
     def visitInvocation_value(self, ctx: tscn_parser.Invocation_valueContext):
-        name = ctx.NAME().getText()
+        name = StringValue(ctx.NAME().getText())
         params = self.visitChildren(ctx)
         if params is None:
             params = []
         if not isinstance(params, list):
             params = [params]
 
+        assert isinstance(params, list)
+
         if name == "ExtResource":
-            return ExtResourceReference(params[0].to_int())
+            return ExtResourceReference(params[0])
 
         if name == "SubResource":
-            return SubResourceReference(params[0].to_int())
+            return SubResourceReference(params[0])
 
         return Invocation(name, params)
 
@@ -176,7 +179,7 @@ class TscnVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
     def visitJsonlike_property(self, ctx: tscn_parser.Jsonlike_propertyContext):
-        return JsonLikeProperty(ctx.STRING_LITERAL(), self.visitValue(ctx.value()))
+        return JsonLikeProperty(ctx.STRING_LITERAL().getText(), self.visitValue(ctx.value()))
 
     def aggregateResult(self, aggregate, next_result):
         if next_result is None:

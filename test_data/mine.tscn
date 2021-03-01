@@ -40,6 +40,7 @@ $\"/root/Universe\".build_world(2323, survivors, starter_story)"
 [node name="Survivors" type="Node" parent="Quickstart"]
 
 [node name="Amos" parent="Quickstart/Survivors" instance=ExtResource( 7 )]
+foo = "Mine"
 
 [node name="Naomi" parent="Quickstart/Survivors" instance=ExtResource( 10 )]
 

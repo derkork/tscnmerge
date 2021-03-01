@@ -1,11 +1,16 @@
-class Value:
+from abc import ABC, abstractmethod
 
-    def to_string(self) -> str:
-        pass
+from model.Comparable import Comparable
+from model.Printable import Printable
 
+
+class Value(Printable, Comparable, ABC):
     def to_int(self) -> int:
         return int(self.to_string())
 
-    # noinspection PyMethodMayBeStatic
+    @abstractmethod
     def is_same(self, other) -> bool:
-        return False
+        pass
+
+    def __eq__(self, other) -> bool:
+        return self.is_same(other)

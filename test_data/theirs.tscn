@@ -13,13 +13,13 @@
 [ext_resource path="res://data/stories/starter_story.tscn" type="PackedScene" id=11]
 [ext_resource path="res://user_interface/story_dialog.tscn" type="PackedScene" id=12]
 [ext_resource path="res://user_interface/planet_camera.gd" type="Script" id=13]
-[ext_resource path="res://user_interface/controls/crafting_dialog.tscn" type="PackedScene" id=14]
+[ext_resource path="res://user_interface/world_ui.tscn" type="PackedScene" id=14]
 [ext_resource path="res://user_interface/controls/loadout_dialog.tscn" type="PackedScene" id=15]
 [ext_resource path="res://model/inventory.gd" type="Script" id=16]
 [ext_resource path="res://data/survivors/technician/technician.tscn" type="PackedScene" id=17]
-[ext_resource path="res://model/knowledge_book.gd" type="Script" id=18]
-[ext_resource path="res://data/weapons/chazor_gun/chazor_gun_recipe.tscn" type="PackedScene" id=19]
-[ext_resource path="res://data/resources/scrap_metal/scrap_metal_recipe.tscn" type="PackedScene" id=20]
+[ext_resource path="res://user_interface/template.gd" type="Script" id=18]
+[ext_resource path="res://user_interface/path_overlay.gd" type="Script" id=19]
+[ext_resource path="res://user_interface/textures/turn_end_marker0000.png" type="Texture" id=20]
 
 [node name="Universe" type="Node"]
 script = ExtResource( 2 )
@@ -40,6 +40,7 @@ $\"/root/Universe\".build_world(2323, survivors, starter_story)"
 [node name="Survivors" type="Node" parent="Quickstart"]
 
 [node name="Amos" parent="Quickstart/Survivors" instance=ExtResource( 7 )]
+foo = "Theirs"
 
 [node name="Naomi" parent="Quickstart/Survivors" instance=ExtResource( 10 )]
 
@@ -49,11 +50,31 @@ $\"/root/Universe\".build_world(2323, survivors, starter_story)"
 
 [node name="Planet" parent="." instance=ExtResource( 1 )]
 
+[node name="PathOverlay" type="Node2D" parent="."]
+position = Vector2( 32, 32 )
+script = ExtResource( 19 )
+
+[node name="Line" type="Line2D" parent="PathOverlay"]
+
+[node name="Template" type="MarginContainer" parent="PathOverlay"]
+visible = false
+margin_right = 40.0
+margin_bottom = 40.0
+script = ExtResource( 18 )
+__meta__ = {
+"_edit_use_anchors_": false
+}
+target = NodePath("..")
+
+[node name="turn_end_marker" type="Sprite" parent="PathOverlay/Template"]
+scale = Vector2( 0.2, 0.2 )
+texture = ExtResource( 20 )
+
 [node name="Survivors" type="Node2D" parent="."]
 z_index = 50
 script = ExtResource( 4 )
 
-[node name="Vehicle" type="Node2D" parent="Survivors"]
+[node name="Vehicle" type="Node5D" parent="Survivors"]
 script = ExtResource( 3 )
 
 [node name="PlanetCamera" type="Camera2D" parent="Survivors/Vehicle"]
@@ -68,37 +89,12 @@ texture = ExtResource( 6 )
 
 [node name="Tween" type="Tween" parent="Survivors/Vehicle"]
 
-[node name="Inventory" type="Node" parent="Survivors/Vehicle"]
+[node name="Inventory" type="Node" parent="."]
 script = ExtResource( 16 )
-
-[node name="KnowledgeBook" type="Node" parent="Survivors/Vehicle"]
-script = ExtResource( 18 )
-
-[node name="Scrap Metal Recipe" parent="Survivors/Vehicle/KnowledgeBook" instance=ExtResource( 20 )]
-
-[node name="Chazor Gun Recipe" parent="Survivors/Vehicle/KnowledgeBook" instance=ExtResource( 19 )]
 
 [node name="UI Layer" type="CanvasLayer" parent="."]
 
-[node name="LoadoutDialogButton" type="Button" parent="UI Layer"]
-margin_left = 5.0
-margin_top = 5.0
-margin_right = 5.0
-margin_bottom = 5.0
-text = "Loadout"
-__meta__ = {
-"_edit_use_anchors_": false
-}
-
-[node name="CraftingDialogButton" type="Button" parent="UI Layer"]
-margin_left = 5.0
-margin_top = 30.0
-margin_right = 5.0
-margin_bottom = 5.0
-text = "Crafting"
-__meta__ = {
-"_edit_use_anchors_": false
-}
+[node name="WorldUi" parent="UI Layer" instance=ExtResource( 14 )]
 
 [node name="CombatArena" parent="UI Layer" instance=ExtResource( 8 )]
 visible = false
@@ -110,13 +106,12 @@ visible = false
 
 [node name="InGameMenu" parent="UI Layer" instance=ExtResource( 5 )]
 visible = false
-
-[node name="CraftingDialog" parent="UI Layer" instance=ExtResource( 14 )]
-visible = false
+[connection signal="survivor_added_to_party" from="Survivors" to="UI Layer/WorldUi" method="add_survivor"]
 [connection signal="sector_entered" from="Survivors/Vehicle" to="Survivors" method="_on_vehicle_sector_entered"]
-[connection signal="pressed" from="UI Layer/LoadoutDialogButton" to="." method="_show_loadout"]
-[connection signal="pressed" from="UI Layer/CraftingDialogButton" to="." method="_show_crafting"]
+[connection signal="end_turn_clicked" from="UI Layer/WorldUi" to="." method="_end_player_turn"]
+[connection signal="menu_clicked" from="UI Layer/WorldUi" to="." method="_show_ingame_menu"]
+[connection signal="survivor_clicked" from="UI Layer/WorldUi" to="." method="_show_loadout"]
+[connection signal="dialog_closed" from="UI Layer/StoryDialog" to="." method="_on_dialog_closed"]
 [connection signal="story_option_picked" from="UI Layer/StoryDialog" to="." method="_on_story_option_picked"]
 [connection signal="dialog_closed" from="UI Layer/LoadoutDialog" to="." method="_on_dialog_closed"]
 [connection signal="dialog_closed" from="UI Layer/InGameMenu" to="." method="_on_dialog_closed"]
-[connection signal="dialog_closed" from="UI Layer/CraftingDialog" to="." method="_on_dialog_closed"]
