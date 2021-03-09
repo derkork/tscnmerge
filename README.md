@@ -1,4 +1,4 @@
-# TSCN-Merge
+# tscnmerge
 
 This is a utility to merge scene files of the Godot game engine. It can be used manually and as a merge tool for Git.
 
@@ -8,7 +8,7 @@ The utility tries to preserve as much information from both scenes as possible. 
 ## How to use it
 You can either use it directly on the command line or as a git merge tool. First download the latest version from the releases and place it somewhere on your computer.
 
-### Using TSCN-merge as a command line tool
+### Using tscnmerge as a command line tool
 ```
 tscnmerge --local path/to/your_version.tscn 
           --remote path/to/their_version.tscn
@@ -22,16 +22,16 @@ tscnmerge --help
 ```
 to get information about all the parameters.
 
-### Using TSCN-merge as a git merge tool
+### Using tscnmerge as a git merge tool
 
 If you want to use it as a git merge tool simply add the following to your `.git/config` file. The path will differ depending on your operating system. So e.g. on Windows you would add something like this:
-```toml
+```
 [mergetool "tscnmerge"]
   cmd = d:/tools/tscnmerge/tscnmerge.exe -l \"$LOCAL\" -r \"$REMOTE\" -m \"$MERGED\"
 ```
 
 While on Linux or OSX you would add something like that:
-```toml
+```
 [mergetool "tscnmerge"]
   cmd = /Users/derkork/tools/tscnmerge/tscnmerge -l \"$LOCAL\" -r \"$REMOTE\" -m \"$MERGED\"
 ```
@@ -42,7 +42,7 @@ Then you can merge a file with conflicts quite simply using:
 git mergetool --tool=tscnmerge scene_with_conflicts.tscn
 ```
 
-This will start an interactive merge process using TSCN-Merge.
+This will start an interactive merge process using tscnmerge.
 
 
 ## What works
