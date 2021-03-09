@@ -12,8 +12,8 @@ The utility tries to preserve as much information from both scenes as possible. 
 - Merges of node trees.
 - Merges of node properties.
 - Interactive merging.
+- Merges of signal connections.
 
 ## What doesn't work
-- Merges of signal connections.
 - Merges of internal resources.
 - Three-way merge using a common base.

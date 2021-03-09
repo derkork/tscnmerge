@@ -1,19 +1,18 @@
-import os
-
 from model.ExtResourceReference import ExtResourceReference
+from model.NodeLike import NodeLike
 from model.Printable import Printable
-from model.PropertyBag import PropertyBag
 from model.StringValue import StringValue
 from model.Value import Value
 
 
-class Node(PropertyBag, Printable):
-    def __init__(self, type: Value, name: Value, parent: Value, instance: Value):
+class Node(NodeLike, Printable):
+    def __init__(self, type: Value, name: Value, parent: Value, instance: Value, instance_placeholder: Value):
         super().__init__()
         self.type: Value or None = type
         self.name: Value = name
         self.parent: Value or None = parent
         self.instance: Value or None = instance
+        self.instance_placeholder: Value or None = instance_placeholder
 
     def is_root(self) -> bool:
         return self.parent is None
@@ -37,14 +36,15 @@ class Node(PropertyBag, Printable):
 
         return \
             are_same(self.type, other.type) and \
-            are_same(self.get("script"), other.get("script")) and \
-            are_same(self.instance, other.instance)
+            are_same(self.get_property("script"), other.get_property("script")) and \
+            are_same(self.instance, other.instance) and \
+            are_same(self.instance_placeholder, other.instance_placeholder)
 
-    def refactor_external_reference(self, old_id: ExtResourceReference, new_id: ExtResourceReference):
+    def refactor_ext_resource_reference(self, old_id: ExtResourceReference, new_id: ExtResourceReference):
         if self.instance is not None and self.instance.is_same(old_id):
             self.instance = new_id
 
-        super().refactor_external_reference(old_id, new_id)
+        super().refactor_ext_resource_reference(old_id, new_id)
 
     def full_path_reference(self) -> Value:
         # Godot has some idiosyncracies when it comes to referencing parent nodes, so we will need to
@@ -66,14 +66,12 @@ class Node(PropertyBag, Printable):
         result = f"[node name={self.name.to_string()}"
         if self.type is not None:
             result += f" type={self.type.to_string()}"
-        if self.instance is not None:
-            result += f" instance={self.instance.to_string()}"
         if self.parent is not None:
             result += f" parent={self.parent.to_string()}"
+        if self.instance is not None:
+            result += f" instance={self.instance.to_string()}"
         result += "]"
-
-        result += os.linesep
-        result += os.linesep.join(map(lambda t: f"{t[0]} = {t[1].to_string()}", self.properties.items()))
-        result += os.linesep
-
+        result += "\n"
+        result += super()._to_node_like_properties_string()
+        result += "\n"
         return result

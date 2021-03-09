@@ -3,6 +3,9 @@ from typing import TypeVar, Generic
 from model.Connection import Connection
 from model.ExtResource import ExtResource
 from model.Node import Node
+from model.PropertyBag import PropertyBag
+from model.SubResource import SubResource
+from model.TscnFile import TscnFile
 from model.Value import Value
 
 T = TypeVar("T")
@@ -57,14 +60,86 @@ def diff_ext_resources(mine: list[ExtResource], theirs: list[ExtResource]) -> Di
     return DiffResult[ExtResource](same, different, only_in_mine, only_in_theirs)
 
 
-def diff_node_properties(mine: Node, theirs: Node) -> DiffResult[tuple[str, Value]]:
-    only_in_mine: list[tuple[str, Value]] = list(map(lambda key: (key, mine.get(key)),
+def diff_sub_resources(mine: TscnFile, theirs: TscnFile) -> DiffResult[SubResource]:
+    # Sub resources are tricky in that they have no unique and stable identifier.
+    # Nodes have a name and a position in the tree and we can assume that two nodes
+    # at the same position are intended to be the same thing.
+    # Sub resources however only have a generated id
+    # and appear and disappear on the fly. As an additional problem sub resources
+    # may be shared between nodes or may be unique instances when the user used the
+    # make unique functionality. So just looking at their type is also not going to
+    # cut it. Therefore we first try to find out who in the file is referencing
+    # sub resources and build a chain of items that lead to each sub resource. If
+    # a sub resource is referenced by multiple items we may have more than one
+    # chain for each resource. After we have built the chains we treat resources
+    # on both sides that share at least one common chain as the same thing and
+    # we can then in a second step diff their individual properties.
+
+    def collect_reference_chains(file: TscnFile):
+        # Run over all the nodes and collect all the paths that refer to this sub resource.
+        for resource in file.sub_resources:
+            paths: set[str] = set()
+            for node in file.nodes:
+                node.find_sub_resource_references(resource.to_reference(), node.full_path_reference().to_string(),
+                                                  paths)
+
+            resource.path_ids += paths
+
+        # Now find all the sub resources that also reference this sub resource and combine
+        # their paths with the node paths previously collected.
+        for resource in file.sub_resources:
+            paths: set[str] = set()
+            for sub_resource in file.sub_resources:
+                for path in resource.path_ids:
+                    sub_resource.find_sub_resource_references(resource.to_reference(), path, paths)
+
+            resource.path_ids += paths
+
+    # Collect resource reference and their chains for both files
+    collect_reference_chains(mine)
+    collect_reference_chains(theirs)
+
+    # Now we know which sub-resources are referenced from which nodes and resources on both sides and we can use
+    # that to find overlaps between the two. We deem two sub-resources as matching together if they have
+    # at least one reference path in common.
+    only_in_mine = filter(
+        lambda it: next(filter(lambda i2: it.shares_paths_with(i2), theirs.sub_resources), None) is None,
+        mine.sub_resources)
+
+    only_in_theirs = filter(
+        lambda it: next(filter(lambda i2: it.shares_paths_with(i2), mine.sub_resources), None) is None,
+        theirs.sub_resources)
+
+    def mapping_function(from_mine: SubResource) -> tuple[SubResource, SubResource] or None:
+        from_theirs: SubResource = next(
+            filter(lambda it: it.shares_paths_with(from_mine), theirs.sub_resources), None)
+        if from_theirs is not None:
+            return from_mine, from_theirs
+        return None
+
+    in_both: list[tuple[SubResource, SubResource]] = list(
+        filter(lambda it: it is not None, map(mapping_function, mine.sub_resources)))
+    same: list[tuple[SubResource, SubResource]] = []
+    different: list[tuple[SubResource, SubResource]] = []
+
+    for my_resource, their_resource in in_both:
+        # ID may differ but we correct that in merging. for diffing the ID doesn't matter
+        if my_resource.has_same_type_and_properties(their_resource):
+            same.append((my_resource, their_resource))
+        else:
+            different.append((my_resource, their_resource))
+
+    return DiffResult[SubResource](same, different, only_in_mine, only_in_theirs)
+
+
+def diff_bag_properties(mine: PropertyBag, theirs: PropertyBag) -> DiffResult[tuple[str, Value]]:
+    only_in_mine: list[tuple[str, Value]] = list(map(lambda key: (key, mine.get_property(key)),
                                                      mine.properties.keys() - theirs.properties.keys()))
-    only_in_theirs: list[tuple[str, Value]] = list(map(lambda key: (key, theirs.get(key)),
+    only_in_theirs: list[tuple[str, Value]] = list(map(lambda key: (key, theirs.get_property(key)),
                                                        theirs.properties.keys() - mine.properties.keys()))
 
     in_both: list[tuple[tuple[str, Value], tuple[str, Value]]] = \
-        list(map(lambda key: ((key, mine.get(key)), (key, theirs.get(key))),
+        list(map(lambda key: ((key, mine.get_property(key)), (key, theirs.get_property(key))),
                  mine.properties.keys() & theirs.properties.keys()))
 
     same: list[tuple[tuple[str, Value], tuple[str, Value]]] = []

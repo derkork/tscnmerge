@@ -1,22 +1,21 @@
 from collections import Callable
 
-from diffing import DiffResult, diff_ext_resources, diff_node_properties, NodePartition, partition_nodes, \
-    diff_connections
+from diffing import DiffResult, diff_ext_resources, diff_bag_properties, NodePartition, partition_nodes, \
+    diff_connections, diff_sub_resources
 from model.Connection import Connection
 from model.ExtResource import ExtResource
 from model.ExtResourceReference import ExtResourceReference
 from model.Node import Node
 from model.NumericValue import NumericValue
 from model.Printable import Printable
+from model.SubResource import SubResource
+from model.SubResourceReference import SubResourceReference
 from model.TscnFile import TscnFile
 from model.Value import Value
 from resolving import Resolution
 
 
-def merge_external_resources(mine: TscnFile, theirs: TscnFile, result: TscnFile):
-    # IDs do not need to be contiguous, they just need to be unique, so we try to
-    # reuse as many IDs as we can and then give new IDs.
-    max_known_resource_id = 1
+def merge_ext_resources(mine: TscnFile, theirs: TscnFile, result: TscnFile):
 
     resource_diff: DiffResult[ExtResource] = diff_ext_resources(mine.ext_resources, theirs.ext_resources)
 
@@ -24,13 +23,10 @@ def merge_external_resources(mine: TscnFile, theirs: TscnFile, result: TscnFile)
     # this way we will not  make this more confusing than it needs to be.
     for my_resource, _ in resource_diff.same:
         # since my_resource and their_resource are identical we just use my_resource
-        item_id = my_resource.id.to_int()
-        if item_id > max_known_resource_id:
-            max_known_resource_id = item_id
         result.ext_resources.append(my_resource)
 
-    # All other items that are somehow different will get new resource ids
-    # assigned.
+    # Now we need a safe new id range so we don't get clashes between ids in the old and new file.
+    max_known_resource_id = max(map(lambda it: it.id.to_int(), mine.ext_resources + theirs.ext_resources))
 
     # noinspection PyShadowingNames
     def make_new_resource_and_reference(old: ExtResource, id: int) -> tuple[ExtResource, ExtResourceReference]:
@@ -47,8 +43,8 @@ def merge_external_resources(mine: TscnFile, theirs: TscnFile, result: TscnFile)
         max_known_resource_id += 1
         new_resource, new_resource_reference = make_new_resource_and_reference(my_resource, max_known_resource_id)
 
-        mine.refactor_external_reference(ExtResourceReference(my_resource.id), new_resource_reference)
-        theirs.refactor_external_reference(ExtResourceReference(their_resource.id), new_resource_reference)
+        mine.refactor_ext_resource_reference(my_resource.to_reference(), new_resource_reference)
+        theirs.refactor_ext_resource_reference(their_resource.to_reference(), new_resource_reference)
 
         # Now build a new resource with the path and type, but use the new id
         # And add that to the result
@@ -59,7 +55,7 @@ def merge_external_resources(mine: TscnFile, theirs: TscnFile, result: TscnFile)
         max_known_resource_id += 1
         new_resource, new_resource_reference = make_new_resource_and_reference(my_resource, max_known_resource_id)
 
-        mine.refactor_external_reference(ExtResourceReference(my_resource.id), new_resource_reference)
+        mine.refactor_ext_resource_reference(my_resource.to_reference(), new_resource_reference)
         result.ext_resources.append(new_resource)
 
     # And the ones that only exist in theirs
@@ -67,8 +63,125 @@ def merge_external_resources(mine: TscnFile, theirs: TscnFile, result: TscnFile)
         max_known_resource_id += 1
         new_resource, new_resource_reference = make_new_resource_and_reference(their_resource, max_known_resource_id)
 
-        theirs.refactor_external_reference(ExtResourceReference(their_resource.id), new_resource_reference)
+        theirs.refactor_ext_resource_reference(their_resource.to_reference(), new_resource_reference)
         result.ext_resources.append(new_resource)
+
+
+def merge_sub_resources(mine: TscnFile, theirs: TscnFile, result: TscnFile,
+                        resolution: Callable[[str, Printable, Printable], Resolution]):
+    # We'll start by giving all resources unique ids across files, as this makes our life a lot easier.
+    resource_id: int = 1
+    for resource in mine.sub_resources:
+        mine.refactor_sub_resource_reference(resource.to_reference(),
+                                             SubResourceReference(NumericValue(str(resource_id))))
+        resource_id += 1
+
+    for resource in theirs.sub_resources:
+        theirs.refactor_sub_resource_reference(resource.to_reference(),
+                                               SubResourceReference(NumericValue(str(resource_id))))
+        resource_id += 1
+
+    resource_diff: DiffResult[SubResource] = diff_sub_resources(mine, theirs)
+
+    # Stuff that is only in mine, can be simply copied over (and since IDs are unique now we don't have to fix anything)
+    for my_resource in resource_diff.only_in_mine:
+        result.sub_resources.append(my_resource)
+
+    # Same for stuff that is only in theirs.
+    for my_resource in resource_diff.only_in_theirs:
+        result.sub_resources.append(my_resource)
+
+    # Stuff that is in both, can be copied over however we need to replace the losing ID.
+    for my_resource, their_resource in resource_diff.same:
+        result.sub_resources.append(my_resource)
+
+        # and we need to fix up the losing id in their file
+        # AND the result file (as we may have references copied over there)
+        theirs.refactor_sub_resource_reference(their_resource.to_reference(), my_resource.to_reference())
+        result.refactor_sub_resource_reference(their_resource.to_reference(), my_resource.to_reference())
+
+    # Now to resources that are different
+    for my_resource, their_resource in resource_diff.different:
+        if not my_resource.represents_same_thing(their_resource):
+            # If the two resources represent different things, there is no way to merge them as the properties are
+            # dependent on the type of the resource and therefore merging properties of two different
+            # types together just makes not any sense. Therefore in this case the only thing
+            # we can do is ask which of the both resources we would like to have.
+
+            decision = resolution("The same resource has different types. "
+                                  "This cannot be merged. Which node should I take?", my_resource, their_resource)
+            if decision == Resolution.MINE:
+                result.sub_resources.append(my_resource)
+                theirs.refactor_sub_resource_reference(their_resource.to_reference(), my_resource.to_reference())
+                result.refactor_sub_resource_reference(their_resource.to_reference(), my_resource.to_reference())
+            elif decision == Resolution.THEIRS:
+                result.sub_resources.append(their_resource)
+                mine.refactor_sub_resource_reference(my_resource.to_reference(), their_resource.to_reference())
+                result.refactor_sub_resource_reference(my_resource.to_reference(), their_resource.to_reference())
+            else:
+                assert False, "Unexpected input."
+
+        else:
+            # The resources represent the same thing. Now we can compare their properties and build a result resource.
+            result_resource = SubResource(my_resource.type, NumericValue(str(resource_id)))
+            resource_id += 1
+            properties: DiffResult[tuple[str, Value]] = diff_bag_properties(my_resource, their_resource)
+
+            # Stuff that is same in both resources, goes to the result
+            for (key, value), _ in properties.same:
+                result_resource.set_property(key, value)
+
+            # Stuff that is in my node only, also goes into the result
+            for key, value in properties.only_in_mine:
+                result_resource.set_property(key, value)
+
+            # Stuff that is in their node only, also goes into the result
+            for key, value in properties.only_in_theirs:
+                result_resource.set_property(key, value)
+
+            # Stuff that is different in both needs to be decided upon
+            for (key, my_value), (_, their_value) in properties.different:
+                decision = resolution(f"SubResource {result_resource.type.to_string()} -> "
+                                      f"Property \"{key}\" is different in both sides. "
+                                      f"Which one should I take?",
+                                      my_value, their_value)
+
+                if decision == Resolution.MINE:
+                    result_resource.set_property(key, my_value)
+                elif decision == Resolution.THEIRS:
+                    result_resource.set_property(key, their_value)
+                else:
+                    assert False, "Unexpected input."
+
+            result.sub_resources.append(result_resource)
+            # since we dropped both resources, we need to fix up the resource everywhere
+            mine.refactor_sub_resource_reference(my_resource.to_reference(), result_resource.to_reference())
+            theirs.refactor_sub_resource_reference(their_resource.to_reference(), result_resource.to_reference())
+            result.refactor_sub_resource_reference(my_resource.to_reference(), result_resource.to_reference())
+            result.refactor_sub_resource_reference(their_resource.to_reference(), result_resource.to_reference())
+
+    # finally, the resources must be ordered such that we have no forward references
+    available_resources: set[SubResourceReference] = set()
+    sorted_resources: list[SubResource] = []
+    remaining_resources: list[SubResource] = list(result.sub_resources)
+
+    while len(remaining_resources) > 0:
+        had_progress = False
+        index = 0
+        while index < len(remaining_resources):
+            references: set[SubResourceReference] = set()
+            remaining_resources[index].find_all_sub_resource_references(references)
+            if available_resources.issuperset(references):
+                # all the referenced resources are known, so we can put
+                # this into sorted
+                sorted_resources.append(remaining_resources[index])
+                del (remaining_resources[index])
+                had_progress = True
+            else:
+                index += 1
+        assert had_progress, "Either we have a circular reference or this is buggy."
+
+    result.sub_resources = sorted_resources
 
 
 def merge_nodes(mine: TscnFile, theirs: TscnFile, result: TscnFile,
@@ -114,21 +227,22 @@ def merge_nodes(mine: TscnFile, theirs: TscnFile, result: TscnFile,
                         assert False, "Unexpected input."
                 else:
                     # The nodes represent the same thing. Now we can compare their properties and build a result node.
-                    result_node = Node(my_node.type, my_node.name, my_node.parent, my_node.instance)
+                    result_node = Node(my_node.type, my_node.name, my_node.parent, my_node.instance,
+                                       my_node.instance_placeholder)
 
-                    properties: DiffResult[tuple[str, Value]] = diff_node_properties(my_node, their_node)
+                    properties: DiffResult[tuple[str, Value]] = diff_bag_properties(my_node, their_node)
 
                     # Stuff that is same in both nodes, goes to the result
                     for (key, value), _ in properties.same:
-                        result_node.set(key, value)
+                        result_node.set_property(key, value)
 
                     # Stuff that is in my node only, also goes into the result
                     for key, value in properties.only_in_mine:
-                        result_node.set(key, value)
+                        result_node.set_property(key, value)
 
                     # Stuff that is in their node only, also goes into the result
                     for key, value in properties.only_in_theirs:
-                        result_node.set(key, value)
+                        result_node.set_property(key, value)
 
                     # Stuff that is different in both needs to be decided upon
                     for (key, my_value), (_, their_value) in properties.different:
@@ -138,9 +252,9 @@ def merge_nodes(mine: TscnFile, theirs: TscnFile, result: TscnFile,
                                               my_value, their_value)
 
                         if decision == Resolution.MINE:
-                            result_node.set(key, my_value)
+                            result_node.set_property(key, my_value)
                         elif decision == Resolution.THEIRS:
-                            result_node.set(key, their_value)
+                            result_node.set_property(key, their_value)
                         else:
                             assert False, "Unexpected input."
 
@@ -163,5 +277,3 @@ def merge_connections(mine: TscnFile, theirs: TscnFile, result: TscnFile):
 
     for connection in connection_diff.only_in_theirs:
         result.connections.append(connection)
-
-

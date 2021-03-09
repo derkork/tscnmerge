@@ -10,7 +10,7 @@ class Invocation(Value):
         return f"{self.name.to_string()}( {','.join(map(lambda it: it.to_string(), self.arguments))} )"
 
     def is_same(self, other) -> bool:
-        if type(self) != type(other):
+        if type(self) is not type(other):
             return False
 
         other_as_invocation: Invocation = other
@@ -25,3 +25,6 @@ class Invocation(Value):
                 return False
 
         return True
+
+    def __hash__(self) -> int:
+        return hash((self.name.__hash__(),) + tuple(map(lambda it: it.__hash__(), self.arguments)))

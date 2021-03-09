@@ -14,3 +14,7 @@ class Value(Printable, Comparable, ABC):
 
     def __eq__(self, other) -> bool:
         return self.is_same(other)
+
+    @abstractmethod
+    def __hash__(self) -> int:
+        pass

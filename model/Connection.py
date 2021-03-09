@@ -16,7 +16,7 @@ class Connection(Printable, Comparable):
                f"method={self.method.to_string()}]"
 
     def is_same(self, other):
-        if type(self) != type(other):
+        if type(self) is not type(other):
             return False
 
         other_as_connection: Connection = other

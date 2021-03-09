@@ -9,9 +9,12 @@ class ScalarValue(Value):
         return self.value
 
     def is_same(self, other: Value) -> bool:
-        if not type(self) is type(other):
+        if type(self) is not type(other):
             return False
 
         # noinspection PyTypeChecker
         other_as_scalar: ScalarValue = other
         return other_as_scalar.value == self.value
+
+    def __hash__(self) -> int:
+        return self.value.__hash__()

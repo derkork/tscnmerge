@@ -46,6 +46,8 @@ class TscnVisitor(ParseTreeVisitor):
                 result.sub_resources.append(element)
             if isinstance(element, Node):
                 result.nodes.append(element)
+            if isinstance(element, Connection):
+                result.connections.append(element)
 
         return result
 
@@ -75,7 +77,7 @@ class TscnVisitor(ParseTreeVisitor):
                 property_value(header_properties, "id")
             )
             for item in definition_properties:
-                result.set(item.name, item.value)
+                result.set_property(item.name, item.value)
             return result
 
         if name == "ext_resource":
@@ -91,10 +93,11 @@ class TscnVisitor(ParseTreeVisitor):
                 property_value(header_properties, "type"),
                 property_value(header_properties, "name"),
                 property_value(header_properties, "parent"),
-                property_value(header_properties, "instance")
+                property_value(header_properties, "instance"),
+                property_value(header_properties, "instance_placeholder")
             )
             for item in definition_properties:
-                result.set(item.name, item.value)
+                result.set_property(item.name, item.value)
             return result
 
         if name == "connection":
@@ -121,7 +124,9 @@ class TscnVisitor(ParseTreeVisitor):
         return self.visitChildren(ctx)
 
     def visitString_value(self, ctx: tscn_parser.String_valueContext):
-        return StringValue(ctx.STRING_LITERAL().getText())
+        # for string values normalize line endings, otherwise we get double-crs
+        # on windows.
+        return StringValue(ctx.STRING_LITERAL().getText().replace("\r\n", "\n"))
 
     def visitNumeric_value(self, ctx: tscn_parser.Numeric_valueContext):
         return NumericValue(ctx.NUMERIC_LITERAL().getText())
@@ -139,10 +144,10 @@ class TscnVisitor(ParseTreeVisitor):
 
         assert isinstance(params, list)
 
-        if name == "ExtResource":
+        if name.value == "ExtResource":
             return ExtResourceReference(params[0])
 
-        if name == "SubResource":
+        if name.value == "SubResource":
             return SubResourceReference(params[0])
 
         return Invocation(name, params)
@@ -171,7 +176,7 @@ class TscnVisitor(ParseTreeVisitor):
 
         result = JsonLikeValue()
         for item in properties:
-            result.set(item.name, item.value)
+            result.set_property(item.name, item.value)
 
         return result
 

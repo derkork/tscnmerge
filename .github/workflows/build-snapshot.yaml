@@ -30,8 +30,7 @@ jobs:
 
       - name: Build grammar
         run: |
-          java -jar antlr-4.9.1-complete.jar -o gen -no-listener -Xexact-output-dir -Dlanguage=Python3 grammar/tscn_lexer.g4
-          java -jar antlr-4.9.1-complete.jar -o gen -no-listener -Xexact-output-dir -lib gen -Dlanguage=Python3 grammar/tscn_parser.g4
+          java -jar antlr-4.9.1-complete.jar -o gen -no-listener -visitor -Xexact-output-dir -Dlanguage=Python3 grammar/tscn_lexer.g4 grammar/tscn_parser.g4
 
       - name: Build executable
         run: python -m pipenv run pyinstaller -F tscnmerge.py
@@ -41,4 +40,3 @@ jobs:
         with:
           name: ${{ matrix.os }}
           path: dist/*
-
