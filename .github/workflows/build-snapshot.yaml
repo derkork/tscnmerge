@@ -51,14 +51,20 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: ubuntu-latest
+          path: release/tscnmerge-linux
 
       - uses: actions/download-artifact@v2
         with:
           name: macos-latest
+          path: release/tscnmerge-osx
 
       - uses: actions/download-artifact@v2
         with:
           name: windows-latest
+          path: release/tscnmerge-windows
+
+      - name: Display structure of downloaded files
+        run: ls -R
 
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
@@ -68,6 +74,4 @@ jobs:
           title: "Snapshot Build"
           files: |
             LICENSE
-            ubuntu-latest/*
-            macos-latest/*
-            windows-latest/*
+            release/**
