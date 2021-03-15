@@ -66,6 +66,12 @@ jobs:
       - name: Display structure of downloaded files
         run: ls -R
 
+      - name: Zip up releases
+        run: |
+          zip -r release/tscnmerge-linux.zip release/tscnmerge-linux
+          zip -r release/tscnmerge-osx.zip release/tscnmerge-osx
+          zip -r release/tscnmerge-windows.zip release/tscnmerge-windows
+
       - uses: "marvinpinto/action-automatic-releases@latest"
         with:
           repo_token: "${{ secrets.GITHUB_TOKEN }}"
@@ -74,4 +80,4 @@ jobs:
           title: "Snapshot Build"
           files: |
             LICENSE
-            release/**
+            release/*.zip
