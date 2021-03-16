@@ -6,7 +6,7 @@ This is a utility to merge scene files of the Godot game engine. It can be used 
 The utility tries to preserve as much information from both scenes as possible. Only if the scene structures conflict with each other you will need to make a decision which version you want. So in a sense you will always get the _union_ of both scenes. Later versions may support a three-way merge, so the tool can make a better decision about what changed and give you more options to control the merge process. 
 
 ## How to use it
-You can either use it directly on the command line or as a git merge tool. First download the latest version from the releases and place it somewhere on your computer.
+First [download tscnmerge](https://github.com/derkork/tscnmerge/releases/tag/snapshot) for your operating system place it somewhere on your computer. You can either use it directly on the command line or as a git merge tool. 
 
 ### Using tscnmerge as a command line tool
 ```
