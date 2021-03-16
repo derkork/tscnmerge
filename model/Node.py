@@ -71,7 +71,6 @@ class Node(NodeLike, Printable):
         if self.instance is not None:
             result += f" instance={self.instance.to_string()}"
         result += "]"
-        result += "\n"
         result += super()._to_node_like_properties_string()
         result += "\n"
         return result

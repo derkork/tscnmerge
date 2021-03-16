@@ -42,7 +42,6 @@ class SubResource(NodeLike, Printable):
 
     def to_string(self) -> str:
         result = f"[sub_resource type={self.type.to_string()} id={self.id.to_string()}]"
-        result += "\n"
         result += super()._to_node_like_properties_string()
         result += "\n"
         return result
