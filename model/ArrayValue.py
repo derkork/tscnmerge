@@ -52,7 +52,7 @@ class ArrayValue(Value, CanReferenceExtResource, CanReferenceSubResource):
 
     def to_string(self) -> str:
         result = "[ "
-        result += ",".join(map(lambda it: it.to_string(), self.values))
+        result += ", ".join(map(lambda it: it.to_string(), self.values))
         result += "]"
         return result
 
